@@ -1,0 +1,18 @@
+[tool.poetry]
+name = "texrelenv"
+version = "0.1.0"
+description = "A Python package for generating data sets based on Hugh Perkins' TexRel (https://arxiv.org/abs/2105.12804)"
+authors = ["Nicholas Bailey <nicholasbailey87@gmail.com>"]
+license = "MIT"
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+[tool.poetry.group.dev.dependencies]
+jupyterlab = "^4.3.3"
+matplotlib = "^3.10.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
