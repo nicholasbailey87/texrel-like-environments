@@ -10,4 +10,4 @@ A Python package for generating data sets based on [Hugh Perkins' TexRel](https:
 
 ## Acknowledgements
 
-We are hugely thank you to Hugh Perkins for 
+We are hugely thankful to Hugh Perkins for coming up with the idea of TexRel](https://arxiv.org/abs/2105.12804) in the first place, for creating the first version of PyTorch, and for doing various other cool stuff.
