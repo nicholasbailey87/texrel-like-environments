@@ -45,7 +45,25 @@ held_out_colours = 0
 
 A dataset can be created from the above config in the following way
 
+```
+from texrelenv import DataSet
 
+data = DataSet(config_file="config.toml")
+```
+
+You could also pass all the config arguments as arguments when you instantiate the `DataSet` (they are all named the same).
+
+Having instantiated the data set, you can generate some train images like this:
+
+```
+data.sample(100, 'train')
+```
+
+Or some test images like this:
+
+```
+data.sample(100, 'test')
+```
 
 ## Config options
 
