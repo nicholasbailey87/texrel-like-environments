@@ -12,7 +12,22 @@ python = "^3.12"
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.3.3"
 matplotlib = "^3.10.0"
+pre-commit = "^4.0.1"
+flake8-bugbear = "^24.12.12"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 88
+target-version = ['py312']
+include = '\.pyi?$'
+
+[flake8]
+max-line-length = 80
+extend-select = "B950"
+extend-ignore = ["E203","E501","E701"]
