@@ -8,6 +8,8 @@ readme = "README.md"
 
 [tool.poetry.dependencies]
 python = "^3.12"
+numpy = "^2.2.0"
+toml = "^0.10.2"
 
 [tool.poetry.group.dev.dependencies]
 jupyterlab = "^4.3.3"
@@ -26,8 +28,3 @@ profile = "black"
 line-length = 88
 target-version = ['py312']
 include = '\.pyi?$'
-
-[flake8]
-max-line-length = 80
-extend-select = "B950"
-extend-ignore = ["E203","E501","E701"]

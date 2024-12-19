@@ -1,19 +1,20 @@
-import random
 import copy
+import random
 from collections import defaultdict
-import  numpy as np
+from typing import Iterable, List, Optional, Tuple
+
+import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
-from typing import Optional, Iterable, List, Tuple
 
 from .colour import get_kelly_colours
+from .exceptions import NoSpace, TooManyColours
 
-from .exceptions import TooManyColours, NoSpace
 
 class ThingTemplate:
     """
     A random template for an object in the environment, based on an
       object size.
-    
+
     Args:
       size - the side length of the square area that is the maximum
           area the object can occupy
@@ -23,36 +24,25 @@ class ThingTemplate:
             grid, with 1s where the object will be filled and 0 where
             it will be transparent.
     """
+
     def __init__(self, size):
         self.size = size
         self.pattern = [
-            [0 if random.randint(0, 1) else 1 for _ in range(size)]
-            for _ in range(size)
+            [0 if random.randint(0, 1) else 1 for _ in range(size)] for _ in range(size)
         ]
 
     def hash(self):
         return hash(str(self.pattern))
 
+
 class Thing:
-    def __init__(
-        self,
-        colour: Tuple[int, int, int],
-        template: ThingTemplate
-    ) -> None:
+    def __init__(self, colour: Tuple[int, int, int], template: ThingTemplate) -> None:
         self.size = template.size
-        self.body = [
-            [colour if j else (0, 0, 0) for j in i]
-            for i in template.pattern
-        ]
+        self.body = [[colour if j else (0, 0, 0) for j in i] for i in template.pattern]
+
 
 class ThingMaker:
-    def __init__(
-        self,
-        size=4,
-        distinct_shapes=9,
-        distinct_colours=9,
-        fix_colour=False
-    ):
+    def __init__(self, size=4, distinct_shapes=9, distinct_colours=9, fix_colour=False):
         if distinct_colours > 22:
             raise TooManyColours("Up to 22 colours supported at this time.")
 
@@ -65,7 +55,7 @@ class ThingMaker:
             proposed_template = ThingTemplate(size)
             if proposed_template.hash() not in [t.hash() for t in self.templates]:
                 self.templates.append(proposed_template)
-        
+
         if fix_colour:
             self.cache = defaultdict(self.random_unused_colour)
         else:
@@ -75,10 +65,8 @@ class ThingMaker:
         return random.choice(self.colours)
 
     def random_unused_colour(self):
-        return random.choice(
-            [c for c in self.colours if c not in self.cache.values()]
-        )
-    
+        return random.choice([c for c in self.colours if c not in self.cache.values()])
+
     def thing(self) -> List[List[Tuple[int, int, int]]]:
         template = random.choice(self.templates)
         if self.fix_colour:
@@ -88,17 +76,16 @@ class ThingMaker:
             colour = random.choice(self.colours)
         return Thing(colour, template)
 
+
 class Grid:
-    def __init__(
-        self,
-        size=16,
-        objects_can_overlap: bool = False
-    ) -> None:
+    def __init__(self, size=16, objects_can_overlap: bool = False) -> None:
         self.size = size
-        self.objects_can_overlap=objects_can_overlap
+        self.objects_can_overlap = objects_can_overlap
         self.state = [[(0, 0, 0) for _ in range(size)] for _ in range(size)]
-    
-    def find_spaces(self, thing: Thing, state: List[List[Tuple[int, int, int]]]) -> List[Tuple[int, int]]:
+
+    def find_spaces(
+        self, thing: Thing, state: List[List[Tuple[int, int, int]]]
+    ) -> List[Tuple[int, int]]:
         """
         Find empty spaces for a square object to be added to the grid, where
             it will not overlap another object. Return the answer as a list of
@@ -122,17 +109,25 @@ class Grid:
         matches = np.all(candidates == space, axis=(2, 3))
         # print('matches:')
         # print(matches)
-        coords =  [tuple(coords) for coords in np.argwhere(matches).tolist()]
+        coords = [tuple(coords) for coords in np.argwhere(matches).tolist()]
         # print('coords:')
         # print(coords)
         return coords
-    def add_object(self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]) -> None:
+
+    def add_object(
+        self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
+    ) -> None:
         self.state = self._functional_add_object(thing, top_left_pixel, self.state)
-    
+
     def pack(self, things: Iterable[Thing]) -> None:
         self.state = self._functional_pack(things, self.state)
-                               
-    def _functional_add_object(self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]], state: List[List[Tuple[int, int, int]]]) -> List[List[Tuple[int, int, int]]]:
+
+    def _functional_add_object(
+        self,
+        thing: Thing,
+        top_left_pixel: Optional[Tuple[int, int]],
+        state: List[List[Tuple[int, int, int]]],
+    ) -> List[List[Tuple[int, int, int]]]:
         """
         Add a `Thing` to a state such as self.state, in place, with the thing's
             top left pixel at `top_left_pixel` if provided, or in a random
@@ -143,7 +138,7 @@ class Grid:
             if self.objects_can_overlap:
                 top_left_pixel = (
                     random.randrange(0, self.size),
-                    random.randrange(0, self.size)
+                    random.randrange(0, self.size),
                 )
             else:
                 spaces = self.find_spaces(thing, working_state)
@@ -156,11 +151,8 @@ class Grid:
             for thing_column, content in enumerate(thing_columns):
                 working_row = top_left_pixel[0] + thing_row
                 working_column = top_left_pixel[1] + thing_column
-                if (
-                    not self.objects_can_overlap and
-                    (
-                        working_state[working_row][working_column] != (0, 0, 0)
-                    )
+                if not self.objects_can_overlap and (
+                    working_state[working_row][working_column] != (0, 0, 0)
                 ):
                     raise NoSpace(
                         "There isn't space for that object to "
@@ -169,8 +161,10 @@ class Grid:
                 else:
                     working_state[working_row][working_column] = content
         return working_state
-    
-    def _functional_pack(self, things: Iterable[Thing], state: List[List[Tuple[int, int, int]]]) -> List[List[Tuple[int, int, int]]]:
+
+    def _functional_pack(
+        self, things: Iterable[Thing], state: List[List[Tuple[int, int, int]]]
+    ) -> List[List[Tuple[int, int, int]]]:
         """
         Randomly pack some provided objects into a grid if possible,
             using recursion and backtracking.
@@ -178,22 +172,24 @@ class Grid:
         if not things:
             return state
         working_state = copy.deepcopy(state)
-        sorted_things = sorted(things, key = lambda x: x.size)
-        thing_to_add = sorted_things.pop() # i.e. largest thing
+        sorted_things = sorted(things, key=lambda x: x.size)
+        thing_to_add = sorted_things.pop()  # i.e. largest thing
         spaces = self.find_spaces(thing_to_add, working_state)
         if not spaces:
             raise NoSpace("Not enough space to add largest object.")
         else:
             random.shuffle(spaces)
             for space in spaces:
-                working_state = self._functional_add_object(thing_to_add, space, working_state)
+                working_state = self._functional_add_object(
+                    thing_to_add, space, working_state
+                )
                 try:
                     return self._functional_pack(sorted_things[1:], working_state)
                 except NoSpace:
                     continue
-        
+
         # If the method didn't return, packing is impossible
         raise NoSpace("Not enough space to pack all objects.")
-    
+
     def array(self):
         return np.asarray(self.state, dtype=np.uint8)

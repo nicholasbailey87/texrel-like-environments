@@ -1,4 +1,4 @@
-def get_kelly_colours(): 
+def get_kelly_colours():
     """
     See https://eleanormaclure.wordpress.com/wp-content/uploads/2011/03/...
       ...colour-coding.pdf
@@ -25,5 +25,5 @@ def get_kelly_colours():
         (141, 182, 0),
         (101, 69, 34),
         (226, 88, 34),
-        (43, 61, 38)
+        (43, 61, 38),
     ]
