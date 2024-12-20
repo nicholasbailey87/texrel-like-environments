@@ -22,12 +22,12 @@ Let's say you have a `config.toml` file that looks like the below. "grid" refers
 
 ```
 [grid]
-size = 16
+grid_size = 16
 hard_boundary = true
 objects_can_overlap = false
 
 [things]
-size = 4
+thing_size = 4
 distinct_shapes = 9
 distinct_colours = 9
 fix_colour = false
@@ -67,7 +67,21 @@ data.sample(100, 'test')
 
 ## Config options
 
-
+| Option   | Type | Meaning|
+|----------|------|--------|
+| **grid_size** | int  | blah   |
+| **hard_boundary** | bool  | blah   |
+| **objects_can_overlap** | bool  | blah   |
+| **thing_size** | int  | blah   |
+| **distinct_shapes** | int  | blah   |
+| **distinct_colours** | int  | blah   |
+| **fix_colour** | bool  | blah   |
+| **things_per_image** | int  | blah   |
+| **rotate** | bool  | blah   |
+| **flip** | bool  | blah   |
+| **held_out_images** | float  | blah   |
+| **held_out_shapes** | float  | blah   |
+| **held_out_colours** | float  | blah   |
 
 ## Contributing
 

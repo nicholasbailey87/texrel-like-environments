@@ -78,12 +78,15 @@ class ThingMaker:
 
 
 class Grid:
-    def __init__(self, size=16, objects_can_overlap: bool = False) -> None:
+    def __init__(
+        self, size=16, hard_boundary=True, objects_can_overlap: bool = False
+    ) -> None:
         self.size = size
+        self.hard_boundary = hard_boundary
         self.objects_can_overlap = objects_can_overlap
         self.state = [[(0, 0, 0) for _ in range(size)] for _ in range(size)]
 
-    def find_spaces(
+    def _find_spaces(
         self, thing: Thing, state: List[List[Tuple[int, int, int]]]
     ) -> List[Tuple[int, int]]:
         """
@@ -95,23 +98,20 @@ class Grid:
         filled_squares = np.array(
             [[0 if c == (0, 0, 0) else 1 for c in r] for r in state]
         )
-        # print('filled_squares:')
-        # print(filled_squares)
+        if not self.hard_boundary:
+            filled_squares = np.pad(
+                filled_squares,
+                pad_width=thing.size - 1,
+                mode="constant",
+                constant_values=0,
+            )
         space_shape = (thing.size, thing.size)
-        # print('space_shape:')
-        # print(space_shape)
         space = np.zeros((thing.size, thing.size))
-        # print('space:')
-        # print(space)
         candidates = sliding_window_view(filled_squares, space_shape)
-        # print('candidates:')
-        # print(candidates)
         matches = np.all(candidates == space, axis=(2, 3))
-        # print('matches:')
-        # print(matches)
         coords = [tuple(coords) for coords in np.argwhere(matches).tolist()]
-        # print('coords:')
-        # print(coords)
+        if not self.hard_boundary:
+            coords = [(a - (thing.size - 1), b - (thing.size - 1)) for a, b in coords]
         return coords
 
     def add_object(
@@ -136,12 +136,13 @@ class Grid:
         working_state = copy.deepcopy(state)
         if top_left_pixel is None:
             if self.objects_can_overlap:
+                print("yaassss")
                 top_left_pixel = (
                     random.randrange(0, self.size),
                     random.randrange(0, self.size),
                 )
             else:
-                spaces = self.find_spaces(thing, working_state)
+                spaces = self._find_spaces(thing, working_state)
                 if not spaces:
                     raise NoSpace("Not enough space to add that object")
                 else:
@@ -151,7 +152,14 @@ class Grid:
             for thing_column, content in enumerate(thing_columns):
                 working_row = top_left_pixel[0] + thing_row
                 working_column = top_left_pixel[1] + thing_column
-                if not self.objects_can_overlap and (
+                if (
+                    (working_row < 0)
+                    or (working_column < 0)
+                    or (working_row >= len(working_state))
+                    or (working_column >= len(working_state))
+                ):
+                    continue
+                elif not self.objects_can_overlap and (
                     working_state[working_row][working_column] != (0, 0, 0)
                 ):
                     raise NoSpace(
@@ -174,7 +182,7 @@ class Grid:
         working_state = copy.deepcopy(state)
         sorted_things = sorted(things, key=lambda x: x.size)
         thing_to_add = sorted_things.pop()  # i.e. largest thing
-        spaces = self.find_spaces(thing_to_add, working_state)
+        spaces = self._find_spaces(thing_to_add, working_state)
         if not spaces:
             raise NoSpace("Not enough space to add largest object.")
         else:
