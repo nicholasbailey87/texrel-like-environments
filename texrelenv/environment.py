@@ -7,7 +7,9 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
 from .colour import get_kelly_colours
-from .exceptions import NoSpace, TooManyColours
+from .exceptions import NoSpace
+
+# TODO: Make all colours integers instead of tuples
 
 
 class ThingTemplate:
@@ -38,34 +40,45 @@ class ThingTemplate:
 class Thing:
     def __init__(self, colour: Tuple[int, int, int], template: ThingTemplate) -> None:
         self.size = template.size
-        self.body = [[colour if j else (0, 0, 0) for j in i] for i in template.pattern]
+        self.body = [[colour if j else 0 for j in i] for i in template.pattern]
 
 
 class ThingMaker:
-    def __init__(self, size=4, distinct_shapes=9, distinct_colours=9, fix_colour=False):
-        if distinct_colours > 22:
-            raise TooManyColours("Up to 22 colours supported at this time.")
+    def __init__(
+        self,
+        size=4,
+        distinct_shapes=9,
+        distinct_colours=9,
+        fix_colour=False,
+        avoid_sharing_colours=True,
+    ):
 
         self.fix_colour = fix_colour
 
-        self.colours = random.choices(get_kelly_colours(), k=distinct_colours)
+        self.distinct_colours = distinct_colours
 
         self.templates = []
+
         while len(self.templates) < distinct_shapes:
             proposed_template = ThingTemplate(size)
             if proposed_template.hash() not in [t.hash() for t in self.templates]:
                 self.templates.append(proposed_template)
 
-        if fix_colour:
-            self.cache = defaultdict(self.random_unused_colour)
+        if avoid_sharing_colours:
+            self.cache = defaultdict(self.unused_colour_if_available)
         else:
             self.cache = defaultdict(self.random_colour)
 
     def random_colour(self):
-        return random.choice(self.colours)
+        return random.randint(1, self.distinct_colours)
 
-    def random_unused_colour(self):
-        return random.choice([c for c in self.colours if c not in self.cache.values()])
+    def unused_colour_if_available(self):
+        colours = [c + 1 for c in range(self.distinct_colours)]
+        unused_colours = [c for c in colours if c not in self.cache.values()]
+        if unused_colours:
+            return random.choice(unused_colours)
+        else:
+            return self.random_colour()
 
     def thing(self) -> List[List[Tuple[int, int, int]]]:
         template = random.choice(self.templates)
@@ -73,7 +86,7 @@ class ThingMaker:
             # get the colour we chose for the template last time
             colour = self.cache[template.hash()]
         else:
-            colour = random.choice(self.colours)
+            colour = self.random_colour()
         return Thing(colour, template)
 
 
@@ -84,7 +97,7 @@ class Grid:
         self.size = size
         self.hard_boundary = hard_boundary
         self.objects_can_overlap = objects_can_overlap
-        self.state = [[(0, 0, 0) for _ in range(size)] for _ in range(size)]
+        self.state = [[0] * size for _ in range(size)]
 
     def _find_spaces(
         self, thing: Thing, state: List[List[Tuple[int, int, int]]]
@@ -95,9 +108,8 @@ class Grid:
             tuples giving the row and column coordinates of the top left pixel
             of each found square space
         """
-        filled_squares = np.array(
-            [[0 if c == (0, 0, 0) else 1 for c in r] for r in state]
-        )
+        filled_squares = np.array(state)
+
         if not self.hard_boundary:
             filled_squares = np.pad(
                 filled_squares,
@@ -136,7 +148,6 @@ class Grid:
         working_state = copy.deepcopy(state)
         if top_left_pixel is None:
             if self.objects_can_overlap:
-                print("yaassss")
                 top_left_pixel = (
                     random.randrange(0, self.size),
                     random.randrange(0, self.size),
@@ -160,7 +171,7 @@ class Grid:
                 ):
                     continue
                 elif not self.objects_can_overlap and (
-                    working_state[working_row][working_column] != (0, 0, 0)
+                    working_state[working_row][working_column] != 0
                 ):
                     raise NoSpace(
                         "There isn't space for that object to "
@@ -199,5 +210,14 @@ class Grid:
         # If the method didn't return, packing is impossible
         raise NoSpace("Not enough space to pack all objects.")
 
-    def array(self):
-        return np.asarray(self.state, dtype=np.uint8)
+    def coloured_array(self):
+        colours = list(set(sum(self.state, [])))
+        kelly = get_kelly_colours()
+        if len(colours) < 22:
+            colour_map = {colours[i]: kelly[i] for i in range(len(colours))}
+        else:
+            colour_map = defaultdict(lambda: tuple([random.randint(1, 255)] * 3))
+            colour_map[0] = kelly[0]
+        return np.asarray(
+            [[colour_map[pixel] for pixel in row] for row in self.state], dtype=np.uint8
+        )

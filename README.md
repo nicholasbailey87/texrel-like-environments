@@ -31,6 +31,7 @@ thing_size = 4
 distinct_shapes = 9
 distinct_colours = 9
 fix_colour = false
+avoid_sharing_colours = true
 
 [environment]
 things_per_image = 5
@@ -76,6 +77,7 @@ data.sample(100, 'test')
 | **distinct_shapes** | int  | blah   |
 | **distinct_colours** | int  | blah   |
 | **fix_colour** | bool  | blah   |
+| **avoid_sharing_colours** | bool  | blah   |
 | **things_per_image** | int  | blah   |
 | **rotate** | bool  | blah   |
 | **flip** | bool  | blah   |
