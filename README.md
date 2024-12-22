@@ -30,8 +30,6 @@ objects_can_overlap = false
 thing_size = 4
 distinct_shapes = 9
 distinct_colours = 9
-fix_colour = false
-avoid_sharing_colours = true
 
 [environment]
 things_per_image = 5
@@ -39,9 +37,8 @@ rotate = false
 flip = false
 
 [split]
-held_out_images = 0.2
-held_out_shapes = 0
-held_out_colours = 0
+hold_out_things = 0.2
+hold_out_images = 0.0
 ```
 
 A dataset can be created from the above config in the following way
@@ -70,20 +67,17 @@ data.sample(100, 'test')
 
 | Option   | Type | Meaning|
 |----------|------|--------|
-| **grid_size** | int  | blah   |
-| **hard_boundary** | bool  | blah   |
-| **objects_can_overlap** | bool  | blah   |
-| **thing_size** | int  | blah   |
-| **distinct_shapes** | int  | blah   |
+| **grid_size** | int  | The size of the square images generated, expressed as the length of the side of the square in pixels. Default is 16, for an easy drop-in replacement for MNIST-like data sets, use 28.   |
+| **hard_boundary** | bool  | If true, shapes added to an image will always be fully visible. If false, they may partially be out of frame. |
+| **objects_can_overlap** | bool  | Can objects go in front of or behind one another? Default is false.  |
+| **thing_size** | int  | How big are the coloured objects added to images? Expressed as the length of one side of the square canvas used to create the templates for these objects, which can also be thought of as the maximum size of an object. |
+| **distinct_shapes** | int  |  |
 | **distinct_colours** | int  | blah   |
-| **fix_colour** | bool  | blah   |
-| **avoid_sharing_colours** | bool  | blah   |
 | **things_per_image** | int  | blah   |
 | **rotate** | bool  | blah   |
 | **flip** | bool  | blah   |
-| **held_out_images** | float  | blah   |
-| **held_out_shapes** | float  | blah   |
-| **held_out_colours** | float  | blah   |
+| **hold_out_things** | float  | blah   |
+| **hold_out_images** | float  | blah   |
 
 ## Contributing
 

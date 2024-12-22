@@ -6,10 +6,8 @@ from typing import Iterable, List, Optional, Tuple
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from .colour import get_kelly_colours
-from .exceptions import NoSpace
-
-# TODO: Make all colours integers instead of tuples
+from .colour import get_kelly_colours, ordinal_to_colour
+from .exceptions import BadSplit, NoSpace
 
 
 class ThingTemplate:
@@ -44,16 +42,13 @@ class Thing:
 
 
 class ThingMaker:
-    def __init__(
-        self,
-        size=4,
-        distinct_shapes=9,
-        distinct_colours=9,
-        fix_colour=False,
-        avoid_sharing_colours=True,
-    ):
-
-        self.fix_colour = fix_colour
+    def __init__(self, size=4, distinct_shapes=9, distinct_colours=9, hold_out=0.2):
+        """
+        Args:
+            hold_out - what portion of `Thing`s (i.e. colour-template
+                combinations) are held out for testing?
+        """
+        self.hold_out = hold_out
 
         self.distinct_colours = distinct_colours
 
@@ -64,30 +59,25 @@ class ThingMaker:
             if proposed_template.hash() not in [t.hash() for t in self.templates]:
                 self.templates.append(proposed_template)
 
-        if avoid_sharing_colours:
-            self.cache = defaultdict(self.unused_colour_if_available)
-        else:
-            self.cache = defaultdict(self.random_colour)
+        things = [
+            Thing(colour, template)
+            for colour in range(1, self.distinct_colours + 1)
+            for template in self.templates
+        ]
 
-    def random_colour(self):
-        return random.randint(1, self.distinct_colours)
+        random.shuffle(things)
 
-    def unused_colour_if_available(self):
-        colours = [c + 1 for c in range(self.distinct_colours)]
-        unused_colours = [c for c in colours if c not in self.cache.values()]
-        if unused_colours:
-            return random.choice(unused_colours)
-        else:
-            return self.random_colour()
+        self.train_things = things[len(things) // (1 / hold_out) :]
+        self.test_things = things[: len(things) // (1 / hold_out)]
 
-    def thing(self) -> List[List[Tuple[int, int, int]]]:
-        template = random.choice(self.templates)
-        if self.fix_colour:
-            # get the colour we chose for the template last time
-            colour = self.cache[template.hash()]
+    def thing(self, split: str) -> List[List[Tuple[int, int, int]]]:
+        assert split in ["train", "test"]
+        if split == "train":
+            return random.choice(self.train_things)
+        elif split == "test":
+            return random.choice(self.test_things)
         else:
-            colour = self.random_colour()
-        return Thing(colour, template)
+            raise BadSplit("Split must be 'train' or 'test'")
 
 
 class Grid:
@@ -211,13 +201,18 @@ class Grid:
         raise NoSpace("Not enough space to pack all objects.")
 
     def coloured_array(self):
-        colours = list(set(sum(self.state, [])))
-        kelly = get_kelly_colours()
-        if len(colours) < 22:
-            colour_map = {colours[i]: kelly[i] for i in range(len(colours))}
+
+        colours_used = set(sum(self.state, []))
+
+        # get Kelly colours sorted darkest to lightest
+        kelly_colours = sorted(get_kelly_colours(), key=lambda x: sum(x))
+
+        if len(colours_used) < 22:
+            colour_map = defaultdict(lambda: random.choice(kelly_colours[1:]))
+            colour_map[0] = kelly_colours[0]
         else:
-            colour_map = defaultdict(lambda: tuple([random.randint(1, 255)] * 3))
-            colour_map[0] = kelly[0]
+            colour_map = {c: ordinal_to_colour(c) for c in colours_used}
+
         return np.asarray(
             [[colour_map[pixel] for pixel in row] for row in self.state], dtype=np.uint8
         )
