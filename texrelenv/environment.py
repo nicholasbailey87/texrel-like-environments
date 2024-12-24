@@ -67,20 +67,21 @@ class ThingMaker:
 
         random.shuffle(things)
 
-        self.train_things = things[len(things) // (1 / hold_out) :]
-        self.test_things = things[: len(things) // (1 / hold_out)]
+        self.train_things = things[int(len(things) // (1 / hold_out)) :]
+        self.test_things = things[: int(len(things) // (1 / hold_out))]
 
     def thing(self, split: str) -> List[List[Tuple[int, int, int]]]:
         assert split in ["train", "test"]
         if split == "train":
             return random.choice(self.train_things)
         elif split == "test":
-            return random.choice(self.test_things)
+            return random.choice(self.test_things + self.train_things)
         else:
             raise BadSplit("Split must be 'train' or 'test'")
 
 
 class Grid:
+    # TODO: Get grid to remember what things it has in what positions!
     def __init__(
         self, size=16, hard_boundary=True, objects_can_overlap: bool = False
     ) -> None:
@@ -115,14 +116,6 @@ class Grid:
         if not self.hard_boundary:
             coords = [(a - (thing.size - 1), b - (thing.size - 1)) for a, b in coords]
         return coords
-
-    def add_object(
-        self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
-    ) -> None:
-        self.state = self._functional_add_object(thing, top_left_pixel, self.state)
-
-    def pack(self, things: Iterable[Thing]) -> None:
-        self.state = self._functional_pack(things, self.state)
 
     def _functional_add_object(
         self,
@@ -199,6 +192,14 @@ class Grid:
 
         # If the method didn't return, packing is impossible
         raise NoSpace("Not enough space to pack all objects.")
+
+    def add_object(
+        self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
+    ) -> None:
+        self.state = self._functional_add_object(thing, top_left_pixel, self.state)
+
+    def pack(self, things: Iterable[Thing]) -> None:
+        self.state = self._functional_pack(things, self.state)
 
     def coloured_array(self):
 

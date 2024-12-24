@@ -21,20 +21,16 @@ Here is an example of how to generate 100 images based on some config options sp
 Let's say you have a `config.toml` file that looks like the below. "grid" refers to the overall canvas of the image while "things" refers to the coloured objects that appear in images. The config options shown below are exhausted and are explained in the (**Config options**)[#Config options] section below
 
 ```
-[grid]
-grid_size = 16
-hard_boundary = true
-objects_can_overlap = false
-
 [things]
-thing_size = 4
 distinct_shapes = 9
 distinct_colours = 9
 
 [environment]
+grid_size = 16
+thing_size = 4
 things_per_image = 5
-rotate = false
-flip = false
+hard_boundary = true
+objects_can_overlap = false
 
 [split]
 hold_out_things = 0.2
