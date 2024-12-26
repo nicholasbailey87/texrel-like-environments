@@ -1,9 +1,9 @@
 from typing import Tuple
 
 
-def ordinal_to_colour(ordinal: int) -> Tuple[int, int, int]:
+def ordinal_to_color(ordinal: int) -> Tuple[int, int, int]:
     """
-    Given an integer, deterministically produce a unique(ish) RGB colour.
+    Given an integer, deterministically produce a unique(ish) RGB color.
     """
     if ordinal == 0:
         # ensure 0 always comes out black
@@ -14,10 +14,10 @@ def ordinal_to_colour(ordinal: int) -> Tuple[int, int, int]:
         return ((a % 26) * 10, (b % 26) * 10, (c % 26) * 10)
 
 
-def get_kelly_colours():
+def get_kelly_colors():
     """
     See https://eleanormaclure.wordpress.com/wp-content/uploads/2011/03/...
-      ...colour-coding.pdf
+      ...color-coding.pdf
     """
     return [
         (34, 34, 34),

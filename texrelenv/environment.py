@@ -1,12 +1,12 @@
 import copy
 import random
 from collections import defaultdict
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, List, Tuple
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from .colour import get_kelly_colours, ordinal_to_colour
+from .color import get_kelly_colors, ordinal_to_color
 from .exceptions import BadSplit, NoSpace
 
 
@@ -36,21 +36,21 @@ class ThingTemplate:
 
 
 class Thing:
-    def __init__(self, colour: Tuple[int, int, int], template: ThingTemplate) -> None:
+    def __init__(self, color: Tuple[int, int, int], template: ThingTemplate) -> None:
         self.size = template.size
-        self.body = [[colour if j else 0 for j in i] for i in template.pattern]
+        self.body = [[color if j else 0 for j in i] for i in template.pattern]
 
 
 class ThingMaker:
-    def __init__(self, size=4, distinct_shapes=9, distinct_colours=9, hold_out=0.2):
+    def __init__(self, size=4, distinct_shapes=9, distinct_colors=9, hold_out=0.2):
         """
         Args:
-            hold_out - what portion of `Thing`s (i.e. colour-template
+            hold_out - what portion of `Thing`s (i.e. color-template
                 combinations) are held out for testing?
         """
         self.hold_out = hold_out
 
-        self.distinct_colours = distinct_colours
+        self.distinct_colors = distinct_colors
 
         self.templates = []
 
@@ -60,8 +60,8 @@ class ThingMaker:
                 self.templates.append(proposed_template)
 
         things = [
-            Thing(colour, template)
-            for colour in range(1, self.distinct_colours + 1)
+            Thing(color, template)
+            for color in range(1, self.distinct_colors + 1)
             for template in self.templates
         ]
 
@@ -88,10 +88,48 @@ class Grid:
         self.size = size
         self.hard_boundary = hard_boundary
         self.objects_can_overlap = objects_can_overlap
-        self.state = [[0] * size for _ in range(size)]
+        self.state = []
+        self.state_image = [[0] * size for _ in range(size)]
+
+    def _add_thing(
+        self,
+        thing: Thing,
+        top_left_pixel: Tuple[int, int],
+        state: List[dict],
+        state_image: List[List[Tuple[int, int]]],
+    ) -> Tuple[List[dict], List[List[Tuple[int, int]]]]:
+        state = copy.deepcopy(state)
+        state_image = self._add_to_state_image(
+            thing, top_left_pixel, copy.deepcopy(state_image)
+        )
+        state.append({"thing": thing, "top_left_pixel": top_left_pixel})
+        return state, state_image
+
+    def _add_to_state_image(
+        self,
+        thing: Thing,
+        top_left_pixel: Tuple[int, int],
+        state_image: List[List[Tuple[int, int]]],
+    ) -> bool:
+        state_image = copy.deepcopy(state_image)
+        for thing_row, thing_columns in enumerate(thing.body):
+            for thing_column, content in enumerate(thing_columns):
+                working_row = top_left_pixel[0] + thing_row
+                working_column = top_left_pixel[1] + thing_column
+                if (
+                    (working_row < 0)
+                    or (working_column < 0)
+                    or (working_row >= len(state_image))
+                    or (working_column >= len(state_image))
+                ):
+                    # Out of frame
+                    continue
+                else:
+                    state_image[working_row][working_column] = content
+        return state_image
 
     def _find_spaces(
-        self, thing: Thing, state: List[List[Tuple[int, int, int]]]
+        self, thing: Thing, state_image: List[List[Tuple[int, int, int]]]
     ) -> List[Tuple[int, int]]:
         """
         Find empty spaces for a square object to be added to the grid, where
@@ -99,7 +137,7 @@ class Grid:
             tuples giving the row and column coordinates of the top left pixel
             of each found square space
         """
-        filled_squares = np.array(state)
+        filled_squares = np.array(state_image)
 
         if not self.hard_boundary:
             filled_squares = np.pad(
@@ -117,103 +155,129 @@ class Grid:
             coords = [(a - (thing.size - 1), b - (thing.size - 1)) for a, b in coords]
         return coords
 
-    def _functional_add_object(
-        self,
-        thing: Thing,
-        top_left_pixel: Optional[Tuple[int, int]],
-        state: List[List[Tuple[int, int, int]]],
-    ) -> List[List[Tuple[int, int, int]]]:
-        """
-        Add a `Thing` to a state such as self.state, in place, with the thing's
-            top left pixel at `top_left_pixel` if provided, or in a random
-            position otherwise, without violating `self.objects_can_overlap`
-        """
-        working_state = copy.deepcopy(state)
-        if top_left_pixel is None:
-            if self.objects_can_overlap:
-                top_left_pixel = (
-                    random.randrange(0, self.size),
-                    random.randrange(0, self.size),
-                )
-            else:
-                spaces = self._find_spaces(thing, working_state)
-                if not spaces:
-                    raise NoSpace("Not enough space to add that object")
-                else:
-                    top_left_pixel = random.choice(spaces)
+    # def _functional_add_object(
+    #     self,
+    #     thing: Thing,
+    #     top_left_pixel: Optional[Tuple[int, int]],
+    #     state: List[List[Tuple[int, int, int]]],
+    # ) -> List[List[Tuple[int, int, int]]]:
+    #     """
+    #     Add a `Thing` to a state such as self.state, in place, with the thing's
+    #         top left pixel at `top_left_pixel` if provided, or in a random
+    #         position otherwise, without violating `self.objects_can_overlap`
+    #     """
+    #     working_state = copy.deepcopy(state)
+    #     if top_left_pixel is None:
+    #         if self.objects_can_overlap:
+    #             top_left_pixel = (
+    #                 random.randrange(0, self.size),
+    #                 random.randrange(0, self.size),
+    #             )
+    #         else:
+    #             spaces = self._find_spaces(thing, working_state)
+    #             if not spaces:
+    #                 raise NoSpace("Not enough space to add that object")
+    #             else:
+    #                 top_left_pixel = random.choice(spaces)
 
-        for thing_row, thing_columns in enumerate(thing.body):
-            for thing_column, content in enumerate(thing_columns):
-                working_row = top_left_pixel[0] + thing_row
-                working_column = top_left_pixel[1] + thing_column
-                if (
-                    (working_row < 0)
-                    or (working_column < 0)
-                    or (working_row >= len(working_state))
-                    or (working_column >= len(working_state))
-                ):
-                    continue
-                elif not self.objects_can_overlap and (
-                    working_state[working_row][working_column] != 0
-                ):
-                    raise NoSpace(
-                        "There isn't space for that object to "
-                        "have the specified `top_left_pixel`!"
-                    )
-                else:
-                    working_state[working_row][working_column] = content
-        return working_state
+    #     for thing_row, thing_columns in enumerate(thing.body):
+    #         for thing_column, content in enumerate(thing_columns):
+    #             working_row = top_left_pixel[0] + thing_row
+    #             working_column = top_left_pixel[1] + thing_column
+    #             if (
+    #                 (working_row < 0)
+    #                 or (working_column < 0)
+    #                 or (working_row >= len(working_state))
+    #                 or (working_column >= len(working_state))
+    #             ):
+    #                 continue
+    #             elif not self.objects_can_overlap and (
+    #                 working_state[working_row][working_column] != 0
+    #             ):
+    #                 raise NoSpace(
+    #                     "There isn't space for that object to "
+    #                     "have the specified `top_left_pixel`!"
+    #                 )
+    #             else:
+    #                 working_state[working_row][working_column] = content
+    #     return working_state
 
     def _functional_pack(
-        self, things: Iterable[Thing], state: List[List[Tuple[int, int, int]]]
+        self,
+        things: Iterable[Thing],
+        state: List[dict],
+        state_image: List[List[Tuple[int, int]]],
     ) -> List[List[Tuple[int, int, int]]]:
         """
         Randomly pack some provided objects into a grid if possible,
             using recursion and backtracking.
         """
         if not things:
-            return state
-        working_state = copy.deepcopy(state)
+            return state, state_image
+        state = copy.deepcopy(state)
+        state_image = copy.deepcopy(state_image)
         sorted_things = sorted(things, key=lambda x: x.size)
         thing_to_add = sorted_things.pop()  # i.e. largest thing
-        spaces = self._find_spaces(thing_to_add, working_state)
+        spaces = self._find_spaces(thing_to_add, state_image)
         if not spaces:
             raise NoSpace("Not enough space to add largest object.")
         else:
             random.shuffle(spaces)
             for space in spaces:
-                working_state = self._functional_add_object(
-                    thing_to_add, space, working_state
+                state, state_image = self._add_thing(
+                    thing_to_add, space, state, state_image
                 )
                 try:
-                    return self._functional_pack(sorted_things[1:], working_state)
+                    return self._functional_pack(sorted_things[1:], state, state_image)
                 except NoSpace:
                     continue
 
         # If the method didn't return, packing is impossible
         raise NoSpace("Not enough space to pack all objects.")
 
-    def add_object(
-        self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
-    ) -> None:
-        self.state = self._functional_add_object(thing, top_left_pixel, self.state)
+    # def state_to_image():
+    #     image = [[0] * size for _ in range(size)]
+    #     for entity in self.state:
+    #         thing, top_left_pixel = entity.values()
+    #         for thing_row, thing_columns in enumerate(thing.body):
+    #                 for thing_column, content in enumerate(thing_columns):
+    #                     working_row = top_left_pixel[0] + thing_row
+    #                     working_column = top_left_pixel[1] + thing_column
+    #                     if (
+    #                         (working_row < 0)
+    #                         or (working_column < 0)
+    #                         or (working_row >= len(working_state))
+    #                         or (working_column >= len(working_state))
+    #                     ):
+    #                         # Out of frame
+    #                         continue
+    #                     else:
+    #                         image[working_row][working_column] = content
+
+    # def add_object(
+    #     self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
+    # ) -> None:
+    #     self.state = self._functional_add_object(thing, top_left_pixel, self.state)
 
     def pack(self, things: Iterable[Thing]) -> None:
-        self.state = self._functional_pack(things, self.state)
+        self.state, self.state_image = self._functional_pack(
+            things, self.state, self.state_image
+        )
 
-    def coloured_array(self):
+    def colorized_image(self):
 
-        colours_used = set(sum(self.state, []))
+        colors_used = set(sum(self.state_image, []))
 
-        # get Kelly colours sorted darkest to lightest
-        kelly_colours = sorted(get_kelly_colours(), key=lambda x: sum(x))
+        # get Kelly colors sorted darkest to lightest
+        kelly_colors = sorted(get_kelly_colors(), key=lambda x: sum(x))
 
-        if len(colours_used) < 22:
-            colour_map = defaultdict(lambda: random.choice(kelly_colours[1:]))
-            colour_map[0] = kelly_colours[0]
+        if len(colors_used) < 22:
+            color_map = defaultdict(lambda: random.choice(kelly_colors[1:]))
+            color_map[0] = kelly_colors[0]
         else:
-            colour_map = {c: ordinal_to_colour(c) for c in colours_used}
+            color_map = {c: ordinal_to_color(c) for c in colors_used}
 
         return np.asarray(
-            [[colour_map[pixel] for pixel in row] for row in self.state], dtype=np.uint8
+            [[color_map[pixel] for pixel in row] for row in self.state_image],
+            dtype=np.uint8,
         )
