@@ -1,12 +1,11 @@
 import copy
+import json
 import random
-from collections import defaultdict
 from typing import Iterable, List, Tuple
 
 import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 
-from .color import get_kelly_colors, ordinal_to_color
 from .exceptions import BadSplit, NoSpace
 
 
@@ -35,8 +34,8 @@ class ThingTemplate:
         return hash(str(self.pattern))
 
 
-class Thing:
-    def __init__(self, color: Tuple[int, int, int], template: ThingTemplate) -> None:
+class Thing(dict):
+    def __init__(self, color: int, template: ThingTemplate) -> None:
         self.size = template.size
         self.body = [[color if j else 0 for j in i] for i in template.pattern]
 
@@ -81,7 +80,6 @@ class ThingMaker:
 
 
 class Grid:
-    # TODO: Get grid to remember what things it has in what positions!
     def __init__(
         self, size=16, hard_boundary=True, objects_can_overlap: bool = False
     ) -> None:
@@ -102,7 +100,7 @@ class Grid:
         state_image = self._add_to_state_image(
             thing, top_left_pixel, copy.deepcopy(state_image)
         )
-        state.append({"thing": thing, "top_left_pixel": top_left_pixel})
+        state.append({"body": thing.body, "top_left": top_left_pixel})
         return state, state_image
 
     def _add_to_state_image(
@@ -155,53 +153,6 @@ class Grid:
             coords = [(a - (thing.size - 1), b - (thing.size - 1)) for a, b in coords]
         return coords
 
-    # def _functional_add_object(
-    #     self,
-    #     thing: Thing,
-    #     top_left_pixel: Optional[Tuple[int, int]],
-    #     state: List[List[Tuple[int, int, int]]],
-    # ) -> List[List[Tuple[int, int, int]]]:
-    #     """
-    #     Add a `Thing` to a state such as self.state, in place, with the thing's
-    #         top left pixel at `top_left_pixel` if provided, or in a random
-    #         position otherwise, without violating `self.objects_can_overlap`
-    #     """
-    #     working_state = copy.deepcopy(state)
-    #     if top_left_pixel is None:
-    #         if self.objects_can_overlap:
-    #             top_left_pixel = (
-    #                 random.randrange(0, self.size),
-    #                 random.randrange(0, self.size),
-    #             )
-    #         else:
-    #             spaces = self._find_spaces(thing, working_state)
-    #             if not spaces:
-    #                 raise NoSpace("Not enough space to add that object")
-    #             else:
-    #                 top_left_pixel = random.choice(spaces)
-
-    #     for thing_row, thing_columns in enumerate(thing.body):
-    #         for thing_column, content in enumerate(thing_columns):
-    #             working_row = top_left_pixel[0] + thing_row
-    #             working_column = top_left_pixel[1] + thing_column
-    #             if (
-    #                 (working_row < 0)
-    #                 or (working_column < 0)
-    #                 or (working_row >= len(working_state))
-    #                 or (working_column >= len(working_state))
-    #             ):
-    #                 continue
-    #             elif not self.objects_can_overlap and (
-    #                 working_state[working_row][working_column] != 0
-    #             ):
-    #                 raise NoSpace(
-    #                     "There isn't space for that object to "
-    #                     "have the specified `top_left_pixel`!"
-    #                 )
-    #             else:
-    #                 working_state[working_row][working_column] = content
-    #     return working_state
-
     def _functional_pack(
         self,
         things: Iterable[Thing],
@@ -235,49 +186,77 @@ class Grid:
         # If the method didn't return, packing is impossible
         raise NoSpace("Not enough space to pack all objects.")
 
-    # def state_to_image():
-    #     image = [[0] * size for _ in range(size)]
-    #     for entity in self.state:
-    #         thing, top_left_pixel = entity.values()
-    #         for thing_row, thing_columns in enumerate(thing.body):
-    #                 for thing_column, content in enumerate(thing_columns):
-    #                     working_row = top_left_pixel[0] + thing_row
-    #                     working_column = top_left_pixel[1] + thing_column
-    #                     if (
-    #                         (working_row < 0)
-    #                         or (working_column < 0)
-    #                         or (working_row >= len(working_state))
-    #                         or (working_column >= len(working_state))
-    #                     ):
-    #                         # Out of frame
-    #                         continue
-    #                     else:
-    #                         image[working_row][working_column] = content
-
-    # def add_object(
-    #     self, thing: Thing, top_left_pixel: Optional[Tuple[int, int]]
-    # ) -> None:
-    #     self.state = self._functional_add_object(thing, top_left_pixel, self.state)
-
     def pack(self, things: Iterable[Thing]) -> None:
         self.state, self.state_image = self._functional_pack(
             things, self.state, self.state_image
         )
 
-    def colorized_image(self):
+    @property
+    def dict(self) -> str:
+        """
+        Represent the grid as a dict, useful for creating datasets
+        """
+        return {"tokens": sum(self.state_image, []), "shapes": self.state}
 
-        colors_used = set(sum(self.state_image, []))
+    @property
+    def json(self) -> str:
+        """
+        Represent the grid as a JSON string, useful for creating datasets
+        """
+        return json.dumps(self.dict)
 
-        # get Kelly colors sorted darkest to lightest
-        kelly_colors = sorted(get_kelly_colors(), key=lambda x: sum(x))
 
-        if len(colors_used) < 22:
-            color_map = defaultdict(lambda: random.choice(kelly_colors[1:]))
-            color_map[0] = kelly_colors[0]
-        else:
-            color_map = {c: ordinal_to_color(c) for c in colors_used}
+class Environment:
+    def __init__(
+        self,
+        grid_size=16,
+        hard_boundary=True,
+        objects_can_overlap=False,
+        thing_size=4,
+        distinct_shapes=9,
+        distinct_colors=9,
+        things_per_image=5,
+        hold_out_things=0.2,
+        hold_out_images=0.2,
+    ):
+        self.grid_size = grid_size
+        self.hard_boundary = hard_boundary
+        self.objects_can_overlap = objects_can_overlap
+        self.things_per_image = things_per_image
+        self.hold_out_images = hold_out_images
+        self.hold_out_things = hold_out_things
 
-        return np.asarray(
-            [[color_map[pixel] for pixel in row] for row in self.state_image],
-            dtype=np.uint8,
+        self.thingmaker = ThingMaker(
+            size=thing_size,
+            distinct_colors=distinct_colors,
+            distinct_shapes=distinct_shapes,
+            hold_out=hold_out_things,
         )
+
+    def _sample_grid(self, split):
+        grid = Grid(
+            size=self.grid_size,
+            hard_boundary=self.hard_boundary,
+            objects_can_overlap=self.objects_can_overlap,
+        )
+        things = [self.thingmaker.thing(split) for _ in range(self.things_per_image)]
+
+        state, state_image = grid._functional_pack(things, grid.state, grid.state_image)
+
+        if split == "train":
+            while abs(hash(str(state_image))) % 100 < self.hold_out_images * 100:
+                state, state_image = grid._functional_pack(
+                    things, grid.state, grid.state_image
+                )
+        elif split == "test":
+            while abs(hash(str(state_image))) % 100 > self.hold_out_images * 100:
+                state, state_image = grid._functional_pack(
+                    things, grid.state, grid.state_image
+                )
+
+        grid.state, grid.state_image = state, state_image
+
+        return grid
+
+    def sample(self, split="train", n=1) -> List[dict]:
+        return [self._sample_grid(split) for _ in range(n)]
