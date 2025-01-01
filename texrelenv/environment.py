@@ -66,8 +66,8 @@ class ThingMaker:
 
         random.shuffle(things)
 
-        self.train_things = things[int(len(things) // (1 / hold_out)) :]
-        self.test_things = things[: int(len(things) // (1 / hold_out))]
+        self.train_things = things[int(hold_out * len(things)) :]
+        self.test_things = things[: int(hold_out * len(things))]
 
     def thing(self, split: str) -> List[List[Tuple[int, int, int]]]:
         assert split in ["train", "test"]
@@ -216,7 +216,7 @@ class Environment:
         distinct_shapes=9,
         distinct_colors=9,
         things_per_image=5,
-        hold_out_things=0.2,
+        hold_out_things=0.0,
         hold_out_images=0.2,
     ):
         self.grid_size = grid_size
